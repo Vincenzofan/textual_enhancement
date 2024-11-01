@@ -1,0 +1,90 @@
+---
+title: "Textual Enhancement"
+author: "Anonimized for peer review"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+    html_document:
+      theme: sandstone
+      highlight: pygments
+      toc: true
+      df_print: paged
+      code_folding: show
+      toc_depth: 4 
+      toc_float: 
+          collapsed: true
+          smooth_scroll: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::include_graphics 
+```
+
+```{r packages, echo=T, message=F}
+pacman::p_load(glmmTMB, # for fitting the Binomial-Gamma Hurdle mixed model
+               lme4, # for fitting the `glmer` models 
+               emmeans) # for post-hoc comparisons
+```
+
+In order to run the codes below, please put the following data files in the folder where this RMD file (i.e., 'TextualEnhancement.Rmd') is located:
+
+- 'AttentionData.rds'
+- 'LearningData.rds'
+
+# Research Question 1: Does Textual Enhancement attract attention?
+
+## Best fitting model Q1
+```{r, Model for Attention and Skipping}
+Q1 <- readRDS(file="AttentionData.rds")
+ModelAttention <- glmmTMB(data = Q1,
+                        DwellTime ~ (Time * WordCategory) + (1|Participant) + (1|Item), 
+                        family = ziGamma(link = "log"),
+                        ziformula = ~ (Time * WordCategory) + (1|Participant) + (1|Item)) # binomial part, using the same predictors as the main model 
+summary(ModelAttention)
+```
+## Emmeans Q1
+```{r}
+EMM1 <- emmeans(ModelAttention, ~ Time*WordCategory, comp = "zi", type = "response") # Calculate EMMs
+pairwise_comparisons_1 <- pairs(EMM1)
+summary(pairwise_comparisons_1)
+```
+
+# Research Question 2: Do participants learn any Dutch vocabulary?
+
+## Best fitting model Q2
+```{r, Model for Learning}
+Q2 <- readRDS(file="LearningData.rds")
+ModelLearning <- glmer(Known ~ Time*WordCategory + PPVTCENT +
+            (1 + Time | Participant) +
+            (1 | Item),
+            data=Q2, family = "binomial")
+summary(ModelLearning)
+```
+## Emmeans Q2
+```{r}
+EMM2 <- emmeans(ModelLearning, ~ Time*WordCategory, type = "response") # Calculate EMMs
+pairwise_comparisons_2 <- pairs(EMM2)
+summary(pairwise_comparisons_2)
+```
+
+# Research Question 3: Do eye fixations predict learning?
+
+## Best fitting model Q3
+```{r, Model for Attention and Learning}
+Q3 = Q2[! Q2$WordCategory %in% c("Filler"), ] # to remove the filler category (for which there is no eye data)
+Q3 = Q3[! Q3$Item %in% c("vreselijk"), ] # to remove the target word 'vreselijk' which did not occur in the last episode (and for which there is no posttest eye data)
+AttentionLearning <- glmer(Known ~ Time * WordCategory + PPVTCENT + Freq_epAll + 
+            (1 | Participant) +
+            (1 | Item),
+            data=Q3,
+            family = "binomial")
+summary(AttentionLearning)
+```
+
+## Emmeans Q3
+```{r}
+EMM3 <- emmeans(ModelLearning, ~ Time*WordCategory, type = "response") # Calculate EMMs
+pairwise_comparisons_3 <- pairs(EMM3)
+summary(pairwise_comparisons_3)
+```
+
