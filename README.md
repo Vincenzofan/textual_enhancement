@@ -2,4 +2,6 @@
 
 Program for creating AOI set used in TBD
 
-Specifications for this textual enhancement project can be found in [Project_TE.ipynb](Project_TE.ipynb).
+A example of using our tool to create AOI sets for subtitles can be found in [Project_TE.ipynb](Project_TE.ipynb).
+
+To reproduce the results, please go to `statistics` and run [TextualEnhancement.Rmd].
