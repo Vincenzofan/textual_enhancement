@@ -1,0 +1,381 @@
+---
+API: 3
+OpenSesame: 4.0.13
+Platform: posix
+---
+set width 1024
+set title "TE experiment template"
+set subject_parity even
+set subject_nr 0
+set start experiment
+set sound_sample_size -16
+set sound_freq 48000
+set sound_channels 2
+set sound_buf_size 1024
+set sampler_backend legacy
+set round_decimals 2
+set mouse_backend legacy
+set keyboard_backend legacy
+set height 768
+set fullscreen no
+set form_clicks no
+set foreground white
+set font_underline no
+set font_size 18
+set font_italic False
+set font_family mono
+set font_bold False
+set experiment_path "/Users/vincefan/Documents/Meow/Bilingual/Materials/executable"
+set disable_garbage_collection False
+set description "A template for eye-tracking experiments"
+set color_backend legacy
+set clock_backend legacy
+set canvas_backend legacy
+set background "#3d3846"
+
+define inline_script Recalibrate
+	set description "Executes Python code"
+	___run__
+	eyetracker.calibrate()
+	eyetracker.drift_correction(pos=None, fix_triggered=True)
+	__end__
+	set _prepare ""
+
+define loop block_loop
+	set source_file ""
+	set source table
+	set skip 0
+	set repeat 1
+	set order random
+	set offset no
+	set item trial_sequence
+	set description "A single block of trials"
+	set cycles 1
+	set continuous no
+	set column_order ""
+	set break_if_on_first yes
+	set break_if False
+	setcycle 0 empty_column ""
+	run trial_sequence
+
+define sequence block_sequence
+	set flush_keyboard yes
+	set description "A sequence containing a single block of trials followed by feedback to the participant"
+	run reset_feedback True
+	run block_loop True
+
+define form_multiple_choice choose_video
+	set timeout infinite
+	set spacing 10
+	set question "@Researcher: please indicate the video to watch"
+	__options__
+	E1D2woC
+	E2D1woC
+	E1D2wC
+	E2D1wC
+	__end__
+	set margins "50;50;50;50"
+	set form_var video_index
+	set form_title Video
+	set description "A simple multiple choice item"
+	set button_text Ok
+	set allow_multiple no
+	set advance_immediately no
+	set _theme gray
+
+define sketchpad end_of_experiment
+	set start_response_interval no
+	set duration keypress
+	set description "A sketchpad notifying the participant that the experiment is finished"
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=True text="Press any key to exit" x=0 y=0 z_index=0
+
+define sketchpad end_of_practice
+	set start_response_interval no
+	set duration keypress
+	set description "A sketchpad notifying the participant that the practice phase is finished"
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=True text="Press any key to continue" x=0 y=0 z_index=0
+
+define sequence experiment
+	set flush_keyboard yes
+	set description "The main sequence of the experiment"
+	run readme True
+	run pygaze_init True
+	run experimental_loop True
+	run end_of_experiment True
+
+define loop experimental_loop
+	set source_file ""
+	set source table
+	set skip 0
+	set repeat 1
+	set order random
+	set offset no
+	set item block_sequence
+	set description "A loop containing one or more experimental blocks"
+	set cycles 1
+	set continuous no
+	set column_order practice
+	set break_if_on_first yes
+	set break_if False
+	setcycle 0 practice no
+	run block_sequence
+
+define feedback feedback
+	set reset_variables yes
+	set duration keypress
+	set description "Provides feedback to the participant"
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=True text="Your average response time was [avg_rt]ms" x=0 y=-96 z_index=0
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=True text="Press any key to continue" x=0 y=32 z_index=0
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=True text="Your accuracy was [acc]%" x=0 y=-32 z_index=0
+
+define sketchpad instructions
+	set start_response_interval no
+	set duration keypress
+	set description "A sketchpad containing the instructions for the participant"
+	draw textline center=1 color=white font_bold=no font_family=mono font_italic=no font_size=18 html=yes show_if=True text="You can take a break now.<br />Press any key to begin!" x=0 y=0 z_index=0
+
+define keyboard_response keyboard_response
+	set timeout infinite
+	set flush yes
+	set event_type keypress
+	set duration keypress
+	set description "Collects keyboard responses"
+
+define inline_script log_AOI
+	set description "Executes Python code"
+	___run__
+	import pandas as pd
+	
+	Dutch_first = ["E2D1wC", "E2D1woC"]
+	aoi = "aoi_x1.75_Dutch_first.csv" if var.video_index in Dutch_first else "aoi_x1.75_English_first.csv"
+	
+	df = pd.read_csv(pool[aoi])
+	duration = 3000 #346640
+	
+	# x2.0
+	#eyetracker.log("!V IAREA RECTANGLE 0 0 0 1920 800 image")
+	# x1.75
+	eyetracker.log("!V IAREA RECTANGLE 0 0 0 1920 814 image")
+	
+	aois =  zip(-df["start_time"],
+	           -df["end_time"],
+	           df["left"],
+	           df["top"],
+	           df["right"],
+	           df["bottom"],
+	           df["target"],
+	           df["target"].apply(lambda t: 1 if t == "first_line" else 2))
+	
+	for start, end, left, top, right, bottom, label, id in aois:
+	    eyetracker.log("!V IAREA %s %s RECTANGLE %s %s %s %s %s %s" %
+	          (start, end, id, left, top, right, bottom, label))
+	    # print("!V IAREA %s %s RECTANGLE %s %s %s %s %s %s" %
+	    #       (start, end, id, left, top, right, bottom, label))
+	__end__
+	set _prepare ""
+
+define logger logger
+	set description "Logs experimental data"
+	set auto_log yes
+	exclude "*_backend"
+	exclude PERSISTENT
+	exclude TEMPORARY
+	exclude acc
+	exclude accuracy
+	exclude average_response_time
+	exclude avg_rt
+	exclude background
+	exclude closed
+	exclude "count_*"
+	exclude credentialless
+	exclude crossOriginIsolated
+	exclude datetime
+	exclude description
+	exclude devicePixelRatio
+	exclude disable_garbage_collection
+	exclude experiment_file
+	exclude experiment_path
+	exclude "font_*"
+	exclude foreground
+	exclude form_clicks
+	exclude fullscreen
+	exclude height
+	exclude innerHeight
+	exclude innerWidth
+	exclude isSecureContext
+	exclude length
+	exclude logfile
+	exclude opensesame_codename
+	exclude origin
+	exclude originAgentCluster
+	exclude outerHeight
+	exclude outerWidth
+	exclude "page?Offset"
+	exclude round_decimals
+	exclude "screen*"
+	exclude "scroll?"
+	exclude "sound_*"
+	exclude start
+	exclude status
+	exclude "time_*"
+	exclude total_correct
+	exclude total_response_time
+	exclude total_responses
+	exclude width
+
+define loop practice_loop
+	set source_file ""
+	set source table
+	set skip 0
+	set repeat 1
+	set order random
+	set offset no
+	set item block_sequence
+	set description "A loop containing one or more practice blocks"
+	set cycles 1
+	set continuous no
+	set column_order practice
+	set break_if_on_first yes
+	set break_if False
+	setcycle 0 practice yes
+	run block_sequence
+
+define pygaze_drift_correct pygaze_drift_correct
+	set ypos 0
+	set xpos 0
+	set target_style "small-cross"
+	set target_color "[foreground]"
+	set fixation_triggered yes
+	set draw_target yes
+	set description "Perform eye-tracker drift correction"
+
+define pygaze_init pygaze_init
+	set tracker_type EyeLink
+	set tobiiglasses_udpport 49152
+	set tobiiglasses_address "192.168.71.50"
+	set smi_send_port 4444
+	set smi_recv_port 5555
+	set smi_ip "127.0.0.1"
+	set sacc_vel_thr 35
+	set sacc_acc_thr 9500
+	set eyelink_pupil_size_mode area
+	set eyelink_force_drift_correct yes
+	set description "Initialize and calibrate eye tracker"
+	set calibrate yes
+	set calbeep no
+	set alea_api_key "Contact Alea for an API key"
+	set alea_animated_calibration no
+	set _logfile automatic
+
+define pygaze_log pygaze_log
+	set throttle 2
+	set msg ""
+	set description "Writes information to the eye-tracker logfile"
+	set auto_log yes
+
+define pygaze_start_recording pygaze_start_recording
+	set status_msg "start_trial [count_trial_sequence]"
+	set description "Puts the eye tracker into recording mode"
+
+define pygaze_stop_recording pygaze_stop_recording
+	set status_msg stop_trial
+	set description "Stops recording of eye tracking data"
+
+define notepad readme
+	__note__
+	Please note that, depending on the version of Opensesame and the software/hardware configuration of your device, you might need to modify this experiment for it to run on your device (for example, change the backend).
+	
+	To use the aoi sets, simply reformat the .csv file created by subAOI.py into an .ias file, where each line should represent an aoi using the following template:
+	
+	-start_time -end_time RECTANGLE id left top right bottom label
+	
+	e.g. 
+	
+	-1325 -2950 RECTANGLE 1 580 800 1340 910 word1
+	-2975 -5650 RECTANGLE 2 414 800 1506 910 word2
+	__end__
+	set description ""
+
+define reset_feedback reset_feedback
+	set description "Resets the feedback variables, such as 'avg_rt' and 'acc'"
+
+define sketchpad sketchpad
+	set start_response_interval no
+	set duration 0
+	set description "Displays stimuli"
+	draw fixdot color=white show_if=True style=default x=0 y=0 z_index=0
+
+define sequence trial_sequence
+	set flush_keyboard yes
+	set description "A single trial"
+	run pygaze_drift_correct True
+	run pygaze_start_recording True
+	run video_part_1_start True
+	run video_part_1 True
+	run video_part_1_end True
+	run instructions True
+	run Recalibrate True
+	run video_part_2_start True
+	run video_part_2 True
+	run video_part_2_end True
+	run pygaze_log True
+	run pygaze_stop_recording True
+
+define media_player_mpy video_part_1
+	set video_src "video_part_1.mp4"
+	set soundrenderer pygame
+	set resizeVideo yes
+	set playaudio yes
+	set loop no
+	set event_handler_trigger "after every frame"
+	__event_handler__
+	eyetracker.log("VFRAME %s %s %s %s" % (frame, 0, 0, pool["video_part_1.mp4"]))
+	__end__
+	set duration keypress
+	set description "Media player based on moviepy"
+
+define inline_script video_part_1_end
+	set description "Executes Python code"
+	___run__
+	msg = "video_part_1_end"
+	eyetracker.log(msg)
+	__end__
+	set _prepare ""
+
+define inline_script video_part_1_start
+	set description "Executes Python code"
+	___run__
+	msg = "video_part_1_start"
+	eyetracker.log(msg)
+	__end__
+	set _prepare ""
+
+define media_player_mpy video_part_2
+	set video_src "video_part_2.mp4"
+	set soundrenderer pygame
+	set resizeVideo yes
+	set playaudio yes
+	set loop no
+	set event_handler_trigger "after every frame"
+	__event_handler__
+	eyetracker.log("VFRAME %s %s %s %s" % (frame, 0, 0, pool["video_part_2.mp4"]))
+	__end__
+	set duration keypress
+	set description "Media player based on moviepy"
+
+define inline_script video_part_2_end
+	set description "Executes Python code"
+	___run__
+	msg = "video_part_2_end"
+	eyetracker.log(msg)
+	__end__
+	set _prepare ""
+
+define inline_script video_part_2_start
+	set description "Executes Python code"
+	___run__
+	msg = "video_part_2_start"
+	eyetracker.log(msg)
+	__end__
+	set _prepare ""
+
